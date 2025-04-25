@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creación de repertorio Online | Simple Church</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    header { border-bottom: 1px solid #dee2e6; }
+    .card { border-left: 4px solid #0d6efd; transition: transform 0.2s; }
+    .card:hover { transform: translateY(-5px); }
+    .card-body { background-color: #ffffff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border-radius: 4px; }
+    #generate-btn, #view-list-btn { white-space: nowrap; }
+    .highlight-nueva { background-color: #fff3cd; }
+    .highlight-especiales { background-color: #cff4fc; }
+    .highlight-navidad { background-color: #d1e7dd; }
+
+    @media (min-width: 768px) {
+      #view-list-btn, #generate-btn { width: 50% !important; }
+    }
+    @media (max-width: 767.98px) {
+      #view-list-btn, #generate-btn { width: 100% !important; }
+      body { padding-bottom: 50px; }
+    }
+
+    select[multiple] option[value="Nueva"]:checked { background-color: #fff3cd; color: #000; }
+    select[multiple] option[value="Especiales"]:checked { background-color: #cff4fc; color: #000; }
+    select[multiple] option[value="Navidad"]:checked { background-color: #d1e7dd; color: #000; }
+  </style>
+</head>
+<body>
+  <header class="bg-white p-4 shadow-sm mb-4">
+    <div class="container-fluid">
+      <h2 class="mb-3">Seleccione el tipo de repertorio a crear:</h2>
+      <div class="row g-3 align-items-center">
+        <div class="col-md-3">
+          <label for="antiguedad-select" class="form-label">Antigüedad</label>
+          <select id="antiguedad-select" class="form-select" multiple>
+            <option value="Antigua" selected>Antigua</option>
+            <option value="Nueva">Nueva</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label for="tematica-select" class="form-label">Temática</label>
+          <select id="tematica-select" class="form-select" multiple>
+            <option value="Adoración" selected>Adoración</option>
+            <option value="Especiales">Especiales</option>
+            <option value="Navidad">Navidad</option>
+          </select>
+        </div>
+        <div class="col-md-6 d-flex flex-column">
+          <a id="view-list-btn"
+             href="https://docs.google.com/spreadsheets/d/1yUI5YxYeVonLllcSkvCT2Sb99CKKs5u_a-wdcbxBrwI"
+             target="_blank"
+             class="btn btn-outline-secondary w-100 mb-2">
+            Ver listado de temas
+          </a>
+          <button id="generate-btn" class="btn btn-primary w-100">
+            Generar repertorios
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container-fluid p-4">
+    <p id="note" class="text-center fst-italic d-none">
+      * Considerar que el tercer tema siempre es un lento, ya que es el momento previo a la predicación.
+    </p>
+    <div class="row g-4" id="cards-container"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let sheetData = null;
+      const sheetUrl = 'https://docs.google.com/spreadsheets/d/1yUI5YxYeVonLllcSkvCT2Sb99CKKs5u_a-wdcbxBrwI/export?format=xlsx&gid=0';
+      const btn = document.getElementById('generate-btn');
+      const note = document.getElementById('note');
+      const selAnt = document.getElementById('antiguedad-select');
+      const selTem = document.getElementById('tematica-select');
+
+      async function fetchSheet() {
+        const resp = await fetch(sheetUrl);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.arrayBuffer();
+        const wb = XLSX.read(new Uint8Array(data), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        sheetData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      }
+
+      function filterData(antArr, temArr) {
+        if (!sheetData) return [];
+        return sheetData.slice(1)
+          .filter(row => antArr.includes(row[1]) && temArr.includes(row[2]));
+      }
+
+      function getRandom(arr, n) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a.slice(0, n);
+      }
+
+      function createCards(list) {
+        const rap = list.filter(r => r[4] === 'Rápida');
+        const len = list.filter(r => r[4] === 'Lenta');
+        const cont = document.getElementById('cards-container');
+        cont.innerHTML = '';
+        if (!list.length) {
+          cont.innerHTML = '<p class="text-muted">No hay canciones.</p>';
+          return;
+        }
+        for (let i = 0; i < 9; i++) {
+          const rapRows = rap.length >= 3 ? getRandom(rap, 3) : [null, null, null];
+          const lentaRow = len.length ? getRandom(len, 1)[0] : null;
+          const rows = [rapRows[0], rapRows[1], lentaRow, rapRows[2]];
+          const cardHtml = rows.map((row, idx) => {
+            const text = row ? row[3] : 'N/A';
+            let cls = '';
+            if (row && row[1] === 'Nueva') cls = 'highlight-nueva';
+            if (row && row[2] === 'Especiales') cls = 'highlight-especiales';
+            if (row && row[2] === 'Navidad') cls = 'highlight-navidad';
+            return `<p class="mb-1 ${cls}"><strong>T${idx+1}:</strong> ${text}</p>`;
+          }).join('');
+          cont.insertAdjacentHTML('beforeend',
+            `<div class="col-xl-4 col-md-6">
+               <div class="card h-100 shadow-sm">
+                 <div class="card-body">${cardHtml}</div>
+               </div>
+             </div>`
+          );
+        }
+      }
+
+      btn.addEventListener('click', async () => {
+        const antArr = Array.from(selAnt.selectedOptions).map(o => o.value);
+        const temArr = Array.from(selTem.selectedOptions).map(o => o.value);
+        if (!antArr.length || !temArr.length) {
+          alert('Debe seleccionar al menos 1 antiguedad y una temática');
+          return;
+        }
+        if (note.classList.contains('d-none')) note.classList.remove('d-none');
+        try {
+          if (!sheetData) await fetchSheet();
+          const filtered = filterData(antArr, temArr);
+          createCards(filtered);
+        } catch (e) {
+          console.error(e);
+          alert('Error al procesar Google Sheet.');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
